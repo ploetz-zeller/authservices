@@ -1,7 +1,4 @@
-﻿using Kentor.AuthServices.Configuration;
-using Kentor.AuthServices.Exceptions;
-using Kentor.AuthServices.Saml2P;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IdentityModel.Metadata;
@@ -18,6 +15,10 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Xml;
 using System.Xml.Linq;
+
+using Kentor.AuthServices.Configuration;
+using Kentor.AuthServices.Exceptions;
+using Kentor.AuthServices.Saml2P;
 
 namespace Kentor.AuthServices.WebSso
 {
@@ -36,9 +37,13 @@ namespace Kentor.AuthServices.WebSso
                 + (string.IsNullOrEmpty(message.RelayState) ? ""
                     : ("&RelayState=" + Uri.EscapeDataString(message.RelayState)));
 
-            if(message.SigningCertificate != null)
+            var strong = true;
+            if (message.SigningCertificate != null)
             {
-                queryString = AddSignature(queryString, message.SigningCertificate);
+                if (strong)
+                    queryString = AddSignature256(queryString, message.SigningCertificate);
+                else
+                    queryString = AddSignature(queryString, message.SigningCertificate);
             }
 
             var redirectUri = new Uri(message.DestinationUrl.ToString()
@@ -56,7 +61,7 @@ namespace Kentor.AuthServices.WebSso
         {
             queryString += "&SigAlg=" + Uri.EscapeDataString(SignedXml.XmlDsigRSASHA1Url);
 
-            var signatureDescription = 
+            var signatureDescription =
                 (SignatureDescription)CryptoConfig.CreateFromName(SignedXml.XmlDsigRSASHA1Url);
 
             var hashAlg = signatureDescription.CreateDigest();
@@ -69,7 +74,26 @@ namespace Kentor.AuthServices.WebSso
             return queryString;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times", Justification="The MemoryStream is not disposed by the DeflateStream - we're using the keep-open flag.")]
+        private static string AddSignature256(string queryString, X509Certificate2 key)
+        {
+            var sigAlg = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+
+            queryString += "&SigAlg=" + Uri.EscapeDataString(sigAlg);
+
+            var signatureDescription =
+                (SignatureDescription)CryptoConfig.CreateFromName(sigAlg);
+
+            var hashAlg = signatureDescription.CreateDigest();
+            hashAlg.ComputeHash(Encoding.UTF8.GetBytes(queryString));
+            var asymmetricSignatureFormatter = signatureDescription.CreateFormatter(key.PrivateKey);
+            var signatureValue = asymmetricSignatureFormatter.CreateSignature(hashAlg);
+
+            queryString += "&Signature=" + Uri.EscapeDataString(Convert.ToBase64String(signatureValue));
+
+            return queryString;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times", Justification = "The MemoryStream is not disposed by the DeflateStream - we're using the keep-open flag.")]
         public override UnbindResult Unbind(HttpRequestData request, IOptions options)
         {
             if (request == null)
@@ -109,25 +133,25 @@ namespace Kentor.AuthServices.WebSso
             HttpRequestData request,
             IOptions options)
         {
-            if(options ==  null)
+            if (options == null)
             {
                 return TrustLevel.None;
             }
 
-            if(!request.QueryString["SigAlg"].Any())
+            if (!request.QueryString["SigAlg"].Any())
             {
                 return TrustLevel.None;
             }
 
             var issuer = documentElement["Issuer", Saml2Namespaces.Saml2Name]?.InnerText;
-            
-            if(string.IsNullOrEmpty(issuer))
+
+            if (string.IsNullOrEmpty(issuer))
             {
                 return TrustLevel.None;
             }
 
             IdentityProvider idp;
-            if(!options.IdentityProviders.TryGetValue(new EntityId(issuer), out idp))
+            if (!options.IdentityProviders.TryGetValue(new EntityId(issuer), out idp))
             {
                 throw new InvalidSignatureException(
                     string.Format(CultureInfo.InvariantCulture,
@@ -152,7 +176,7 @@ namespace Kentor.AuthServices.WebSso
 
             var msgParam = "";
             string msg;
-            if(rawQueryStringParams.TryGetValue("SAMLRequest", out msg))
+            if (rawQueryStringParams.TryGetValue("SAMLRequest", out msg))
             {
                 msgParam = "SAMLRequest=" + msg;
             }
@@ -183,7 +207,7 @@ namespace Kentor.AuthServices.WebSso
 
             var signature = Convert.FromBase64String(request.QueryString["Signature"].Single());
 
-            if(!idp.SigningKeys.Any(
+            if (!idp.SigningKeys.Any(
                 kic => signatureDescription.CreateDeformatter(
                     ((AsymmetricSecurityKey)kic.CreateKey()).GetAsymmetricAlgorithm(sigAlg, false))
                     .VerifySignature(hashAlg, signature)))
@@ -194,7 +218,7 @@ namespace Kentor.AuthServices.WebSso
             }
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times", Justification="The MemoryStream is not disposed by the DeflateStream - we're using the keep-open flag.")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times", Justification = "The MemoryStream is not disposed by the DeflateStream - we're using the keep-open flag.")]
         private static string Serialize(string payload)
         {
             using (var compressed = new MemoryStream())
@@ -210,7 +234,7 @@ namespace Kentor.AuthServices.WebSso
 
         protected internal override bool CanUnbind(HttpRequestData request)
         {
-            if(request == null)
+            if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
             }
