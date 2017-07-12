@@ -101,16 +101,12 @@ namespace Kentor.AuthServices.WebSso
                 {
                     throw new ConfigurationErrorsException(UnsolicitedMissingReturnUrlMessage);
                 }
-                if(storedRequestState.ReturnUrl == null)
-                {
-                    throw new ConfigurationErrorsException(SpInitiatedMissingReturnUrl);
-                }
             }
 
             return new CommandResult()
             {
                 HttpStatusCode = HttpStatusCode.SeeOther,
-                Location = storedRequestState?.ReturnUrl ?? options.SPOptions.ReturnUrl,
+                Location = storedRequestState?.ReturnUrl ?? options.SPOptions.ReturnUrl ?? new Uri(storedRequestState.RelayData["RedirectUri"]),
                 Principal = principal,
                 RelayData = storedRequestState?.RelayData,
                 SessionNotOnOrAfter = samlResponse.SessionNotOnOrAfter
