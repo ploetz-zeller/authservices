@@ -78,6 +78,13 @@ namespace Kentor.AuthServices.Metadata
 
         private static MetadataBase Load(string metadataLocation)
         {
+            const string dataProtocol = "data:text/xml;base64,";
+
+            if (metadataLocation?.StartsWith(dataProtocol) ?? false)
+            {
+                return Load(new MemoryStream(Convert.FromBase64String(metadataLocation.Substring(dataProtocol.Length))));
+            }
+
             if(PathHelper.IsWebRootRelative(metadataLocation))
             {
                 metadataLocation = PathHelper.MapPath(metadataLocation);
