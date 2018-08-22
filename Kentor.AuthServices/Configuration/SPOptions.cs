@@ -132,7 +132,7 @@ namespace Kentor.AuthServices.Configuration
         {
             get
             {
-                return entityId;
+                return EntityIdGetter?.Invoke() ?? entityId;
             }
             set
             {
@@ -143,6 +143,14 @@ namespace Kentor.AuthServices.Configuration
                 entityId = value;
             }
         }
+
+        /// <summary>
+        /// Gets or sets the entity identifier getter.
+        /// </summary>
+        /// <value>
+        /// The entity identifier getter.
+        /// </value>
+        public Func<EntityId> EntityIdGetter { get; set; }
 
         private string modulePath = "/AuthServices";
 

@@ -80,9 +80,12 @@ namespace Kentor.AuthServices.Metadata
         {
             const string dataProtocol = "data:text/xml;base64,";
 
-            if (metadataLocation?.StartsWith(dataProtocol) ?? false)
+            if (metadataLocation?.StartsWith(dataProtocol, StringComparison.Ordinal) ?? false)
             {
-                return Load(new MemoryStream(Convert.FromBase64String(metadataLocation.Substring(dataProtocol.Length))));
+                using (var memStream = new MemoryStream(Convert.FromBase64String(metadataLocation.Substring(dataProtocol.Length))))
+                {
+                    return Load(memStream);
+                }
             }
 
             if(PathHelper.IsWebRootRelative(metadataLocation))
