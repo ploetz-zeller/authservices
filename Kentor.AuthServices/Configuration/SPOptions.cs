@@ -71,11 +71,31 @@ namespace Kentor.AuthServices.Configuration
             }
         }
 
+        private Uri returnUrl;
+
         /// <summary>
         /// Return Uri to redirect the client to, if no return uri was specified
         /// when initiating the signin sequence.
         /// </summary>
-        public Uri ReturnUrl { get; set; }
+        public Uri ReturnUrl
+        {
+            get
+            {
+                return ReturnUrlGetter?.Invoke() ?? returnUrl;
+            }
+            set
+            {
+                returnUrl = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the return URL getter.
+        /// </summary>
+        /// <value>
+        /// The return URL getter.
+        /// </value>
+        public Func<Uri> ReturnUrlGetter { get; set; }
 
         /// <summary>
         /// Recommendation of cache refresh interval to those who reads our
@@ -103,7 +123,7 @@ namespace Kentor.AuthServices.Configuration
                 // Capture in a local variable to prevent race conditions. Reads and writes
                 // of references are atomic so there is no need for a lock.
                 var value = saml2PSecurityTokenHandler;
-                if(value == null)
+                if (value == null)
                 {
                     // Set the saved value, but don't trust it - still use a local var for the return.
                     saml2PSecurityTokenHandler = value = new Saml2PSecurityTokenHandler(this);
@@ -113,7 +133,7 @@ namespace Kentor.AuthServices.Configuration
             }
             set
             {
-                saml2PSecurityTokenHandler = value; 
+                saml2PSecurityTokenHandler = value;
             }
         }
 
@@ -136,7 +156,7 @@ namespace Kentor.AuthServices.Configuration
             }
             set
             {
-                if(saml2PSecurityTokenHandler != null)
+                if (saml2PSecurityTokenHandler != null)
                 {
                     throw new InvalidOperationException("Can't change entity id when a token handler has been instantiated.");
                 }
@@ -166,7 +186,7 @@ namespace Kentor.AuthServices.Configuration
             }
             set
             {
-                if(value == null)
+                if (value == null)
                 {
                     throw new ArgumentNullException(nameof(value));
                 }
@@ -319,7 +339,7 @@ namespace Kentor.AuthServices.Configuration
                 var futureBothCertExists = metaDataCertificates
                     .Any(c => c.Status == CertificateStatus.Future && c.Use == CertificateUse.Both);
 
-                foreach(var cert in metaDataCertificates)
+                foreach (var cert in metaDataCertificates)
                 {
                     // Just like we stop publishing Encryption cert immediately when a Future one is added,
                     // in the case of a "Both" cert we should switch the current use to Signing so that Idp's stop sending
